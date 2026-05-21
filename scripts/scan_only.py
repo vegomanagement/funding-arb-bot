@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import load_config
 from src.exchanges.bybit_client import BybitClient
 from src.exchanges.hyperliquid_client import HyperliquidClient
+from src.market_data.cache import MarketDataCache
 from src.scanner.opportunity_scanner import OpportunityScanner
 
 
@@ -30,15 +31,16 @@ async def main():
 
     bybit = BybitClient()
     hl = HyperliquidClient()
+    cache = MarketDataCache([bybit, hl])
     scanner = OpportunityScanner(
-        exchanges=[bybit, hl],
         min_funding_diff_pct=cfg.min_funding_diff_pct,
         min_volume_24h_usd=cfg.min_volume_24h_usd,
     )
 
     try:
         while True:
-            opportunities = await scanner.scan()
+            await cache.refresh()
+            opportunities = scanner.scan(cache)
             if not opportunities:
                 print(f"\rНет возможностей. Жду {cfg.scan_interval_sec}s...", end="", flush=True)
             else:

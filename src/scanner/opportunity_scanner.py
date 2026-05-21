@@ -3,11 +3,11 @@
 Находит монеты где разница funding rates между биржами достаточно велика
 для прибыльной арбитражной сделки.
 """
-import asyncio
 from dataclasses import dataclass
 from loguru import logger
 
-from src.exchanges.base import ExchangeBase, FundingInfo
+from src.exchanges.base import FundingInfo
+from src.market_data.cache import MarketDataCache
 
 
 @dataclass
@@ -45,45 +45,27 @@ class Opportunity:
 class OpportunityScanner:
     def __init__(
         self,
-        exchanges: list[ExchangeBase],
         min_funding_diff_pct: float = 0.03,
         min_volume_24h_usd: float = 1_000_000,
         max_basis_pct: float = 0.5,
     ):
-        if len(exchanges) < 2:
-            raise ValueError("Сканер требует минимум 2 биржи")
-        self.exchanges = exchanges
         self.min_diff = min_funding_diff_pct
         self.min_volume = min_volume_24h_usd
         self.max_basis = max_basis_pct
 
-    async def _fetch_all(self) -> dict[str, list[FundingInfo]]:
-        """Запросить funding rates со всех бирж параллельно."""
-        results = await asyncio.gather(
-            *[ex.get_all_funding_rates() for ex in self.exchanges],
-            return_exceptions=True,
-        )
-
-        out: dict[str, list[FundingInfo]] = {}
-        for ex, res in zip(self.exchanges, results):
-            if isinstance(res, Exception):
-                logger.error(f"{ex.name} failed: {res}")
-                out[ex.name] = []
-            else:
-                out[ex.name] = res
-        return out
-
-    async def scan(self) -> list[Opportunity]:
-        """Найти все возможности арбитража прямо сейчас."""
-        rates_by_exchange = await self._fetch_all()
+    def scan(self, cache: MarketDataCache) -> list[Opportunity]:
+        """Найти все возможности арбитража из кеша рыночных данных."""
+        exchange_names = cache.exchange_names()
+        if len(exchange_names) < 2:
+            logger.warning("Сканер: в кеше меньше 2 бирж")
+            return []
 
         # Строим индекс {symbol: {exchange_name: FundingInfo}}
         index: dict[str, dict[str, FundingInfo]] = {}
-        for ex_name, rates in rates_by_exchange.items():
-            for r in rates:
-                index.setdefault(r.symbol, {})[ex_name] = r
+        for ex_name in exchange_names:
+            for info in cache.get_all(ex_name):
+                index.setdefault(info.symbol, {})[ex_name] = info
 
-        # Только монеты которые есть на обеих биржах
         common = {sym: data for sym, data in index.items() if len(data) >= 2}
 
         opportunities: list[Opportunity] = []
@@ -128,3 +110,7 @@ class OpportunityScanner:
 
         opportunities.sort(key=lambda o: o.profit_per_8h_pct, reverse=True)
         return opportunities
+
+    async def scan_async(self, cache: MarketDataCache) -> list[Opportunity]:
+        """Async-обёртка для обратной совместимости."""
+        return self.scan(cache)

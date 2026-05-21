@@ -16,6 +16,7 @@ from src.database.db import init_db, get_session
 from src.database.models import Position, OpportunityLog
 from src.exchanges.bybit_client import BybitClient
 from src.exchanges.hyperliquid_client import HyperliquidClient
+from src.market_data.cache import MarketDataCache
 from src.scanner.opportunity_scanner import OpportunityScanner
 from src.execution.paper_trader import PaperTrader
 from src.monitoring.funding_monitor import FundingMonitor
@@ -51,8 +52,8 @@ class Bot:
         )
         self.exchanges = {"bybit": self.bybit, "hyperliquid": self.hl}
 
+        self.cache = MarketDataCache([self.bybit, self.hl])
         self.scanner = OpportunityScanner(
-            exchanges=[self.bybit, self.hl],
             min_funding_diff_pct=self.cfg.min_funding_diff_pct,
             min_volume_24h_usd=self.cfg.min_volume_24h_usd,
         )
@@ -129,11 +130,14 @@ class Bot:
         last_heartbeat = datetime.utcnow()
         while not self._stop:
             try:
-                # 1. Мониторим открытые позиции (закрытия, funding выплаты)
-                await self.monitor.check_all()
+                # 1. Один запрос к биржам на весь цикл
+                await self.cache.refresh()
 
-                # 2. Ищем новые возможности
-                opportunities = await self.scanner.scan()
+                # 2. Мониторим открытые позиции (закрытия, funding выплаты)
+                await self.monitor.check_all(self.cache)
+
+                # 3. Ищем новые возможности
+                opportunities = self.scanner.scan(self.cache)
                 if opportunities:
                     logger.info(f"Найдено {len(opportunities)} возможностей")
                     await self._process_opportunities(opportunities)

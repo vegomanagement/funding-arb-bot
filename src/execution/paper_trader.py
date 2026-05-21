@@ -9,10 +9,11 @@ from loguru import logger
 from src.database.db import get_session
 from src.database.models import Position, FundingEvent
 from src.exchanges.base import ExchangeBase, Orderbook
+from src.execution.base import TraderBase
 from src.scanner.opportunity_scanner import Opportunity
 
 
-class PaperTrader:
+class PaperTrader(TraderBase):
     def __init__(self, exchanges: dict[str, ExchangeBase], mode: str = "paper"):
         # {"bybit": BybitClient, "hyperliquid": HyperliquidClient}
         self.exchanges = exchanges
@@ -131,8 +132,7 @@ class PaperTrader:
             )
             return total_pnl
 
-    @staticmethod
-    def record_funding(position_id: int, exchange: str, amount_usd: float,
+    def record_funding(self, position_id: int, exchange: str, amount_usd: float,
                        rate_pct: float, period_hours: int) -> None:
         """Записать получение/выплату funding в БД."""
         with get_session() as s:

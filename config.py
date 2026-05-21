@@ -63,6 +63,7 @@ class Config:
 
     # Логи
     log_level: str
+    timezone: str
 
     @property
     def is_paper(self) -> bool:
@@ -94,6 +95,7 @@ def load_config() -> Config:
         min_volume_24h_usd=_get_float("MIN_VOLUME_24H_USD", 1_000_000),
         db_path=_get("DB_PATH", "/tmp/funding_arb.db"),
         log_level=_get("LOG_LEVEL", "INFO"),
+        timezone=_get("TIMEZONE", "UTC"),
     )
 
     if cfg.mode not in ("paper", "testnet", "live"):

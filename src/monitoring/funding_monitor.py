@@ -163,7 +163,17 @@ class FundingMonitor:
             f"{info.symbol} funding на {exchange_name}: "
             f"{rate_per_period_pct:+.4f}%/{period_hours}h × {periods_passed} = ${amount:+.4f}"
         )
-        await self.notifier.funding_paid(info.symbol, exchange_name, amount)
+        with get_session() as s:
+            pos = s.get(Position, position_id)
+            total_funding = pos.funding_received_usd or 0 if pos else 0
+        await self.notifier.funding_paid(
+            symbol=info.symbol,
+            exchange=exchange_name,
+            amount_usd=amount,
+            total_funding_usd=total_funding,
+            next_ts=info.next_funding_ts,
+            interval_hours=period_hours,
+        )
 
     async def _close(self, position_id: int, reason: str) -> None:
         pnl = await self.trader.close(position_id, reason)
@@ -177,5 +187,7 @@ class FundingMonitor:
                     reason=reason,
                     total_pnl=pos.total_pnl_usd or 0,
                     funding_received=pos.funding_received_usd or 0,
+                    price_pnl=pos.price_pnl_usd or 0,
                     fees=pos.fees_paid_usd or 0,
+                    opened_at=pos.opened_at,
                 )

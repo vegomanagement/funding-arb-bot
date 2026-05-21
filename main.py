@@ -21,6 +21,7 @@ from src.execution.paper_trader import PaperTrader
 from src.monitoring.funding_monitor import FundingMonitor
 from src.strategy.risk_manager import RiskManager
 from src.notifications.telegram_notifier import TelegramNotifier
+from src.notifications.telegram_commands import TelegramCommands
 
 
 def setup_logging(level: str) -> None:
@@ -72,6 +73,7 @@ class Bot:
             min_funding_diff_pct=self.cfg.min_funding_diff_pct,
             mode=self.cfg.mode,
         )
+        self.commands = TelegramCommands(self.cfg.tg_token, self.cfg.tg_chat_id)
         self._stop = False
 
     async def _log_opportunity(self, op) -> None:
@@ -158,6 +160,7 @@ class Bot:
         await self.bybit.close()
         await self.hl.close()
         await self.notifier.close()
+        await self.commands.close()
 
 
 async def main():
@@ -168,7 +171,11 @@ async def main():
         loop.add_signal_handler(sig, lambda: asyncio.create_task(bot.shutdown()))
 
     try:
-        await bot.run()
+        # Запускаем основной бот и Telegram команды параллельно
+        await asyncio.gather(
+            bot.run(),
+            bot.commands.run(mode=bot.cfg.mode),
+        )
     finally:
         await bot.shutdown()
 

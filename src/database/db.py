@@ -1,9 +1,11 @@
 """SQLite соединение и сессия."""
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+from loguru import logger
 
-from .models import Base
+from .models import Base, OpportunityLog
 
 
 _engine = None
@@ -31,3 +33,21 @@ def get_session() -> Session:
         raise
     finally:
         session.close()
+
+
+def cleanup_opportunities(keep_days: int = 7) -> int:
+    """Удалить записи opportunities старше keep_days дней.
+
+    Возвращает количество удалённых строк.
+    Позиции и funding_events не трогаем — они маленькие и ценные.
+    """
+    cutoff = datetime.utcnow() - timedelta(days=keep_days)
+    with get_session() as s:
+        deleted = (
+            s.query(OpportunityLog)
+            .filter(OpportunityLog.found_at < cutoff)
+            .delete(synchronize_session=False)
+        )
+    if deleted:
+        logger.info(f"DB cleanup: удалено {deleted} opportunities старше {keep_days} дней")
+    return deleted

@@ -12,7 +12,7 @@ from datetime import datetime
 from loguru import logger
 
 from config import load_config
-from src.database.db import init_db, get_session
+from src.database.db import init_db, get_session, cleanup_opportunities
 from src.database.models import Position, OpportunityLog
 from src.exchanges.bybit_client import BybitClient
 from src.exchanges.hyperliquid_client import HyperliquidClient
@@ -128,6 +128,7 @@ class Bot:
         )
 
         last_heartbeat = datetime.utcnow()
+        last_cleanup = datetime.utcnow()
         while not self._stop:
             try:
                 # 1. Один запрос к биржам на весь цикл
@@ -142,7 +143,12 @@ class Bot:
                     logger.info(f"Найдено {len(opportunities)} возможностей")
                     await self._process_opportunities(opportunities)
 
-                # 3. Heartbeat в Telegram раз в час
+                # 3. Очистка старых opportunities раз в сутки
+                if (datetime.utcnow() - last_cleanup).total_seconds() > 86400:
+                    cleanup_opportunities(keep_days=7)
+                    last_cleanup = datetime.utcnow()
+
+                # 4. Heartbeat в Telegram раз в час
                 if (datetime.utcnow() - last_heartbeat).total_seconds() > 3600:
                     with get_session() as s:
                         open_count = s.query(Position).filter_by(

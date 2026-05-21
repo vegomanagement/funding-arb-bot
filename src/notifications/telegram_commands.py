@@ -1,26 +1,27 @@
 """Telegram бот команды для arb бота.
 
 Polling loop запускается параллельно с основным ботом.
-Команды: /stats /today /positions /help
+Команды: /stats /today /positions /best /timezone /help
 """
 import asyncio
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
 import aiohttp
 from loguru import logger
 
-from src.database.db import get_session
-from src.database.models import Position, FundingEvent, OpportunityLog
+from src.database.db import get_session, get_setting, set_setting
+from src.database.models import Position
 
 
 class TelegramCommands:
-    def __init__(self, token: str, chat_id: str):
+    def __init__(self, token: str, chat_id: str, notifier=None):
         self.token = token
         self.chat_id = chat_id
         self.base = f"https://api.telegram.org/bot{token}"
         self.enabled = bool(token and chat_id)
         self._offset = 0
         self._session: Optional[aiohttp.ClientSession] = None
+        self._notifier = notifier  # TelegramNotifier — для reload_timezone()
 
     async def _sess(self):
         if not self._session or self._session.closed:
@@ -48,12 +49,55 @@ class TelegramCommands:
         s = await self._sess()
         try:
             async with s.get(f"{self.base}/getUpdates", params={
-                "offset": self._offset, "timeout": 30, "allowed_updates": ["message"]
+                "offset": self._offset, "timeout": 30,
+                "allowed_updates": ["message"],
             }, timeout=aiohttp.ClientTimeout(total=35)) as r:
                 data = await r.json()
                 return data.get("result", [])
         except Exception:
             return []
+
+    # ── Timezone ────────────────────────────────────────────────
+
+    def _cmd_timezone(self, args: str) -> str:
+        """Установить timezone вручную: /timezone Europe/Riga"""
+        tz = args.strip()
+        if not tz:
+            current = get_setting("timezone") or "UTC (по умолчанию)"
+            return (
+                f"🌍 <b>Текущий часовой пояс:</b> {current}\n\n"
+                "Чтобы изменить:\n"
+                "• <code>/timezone Europe/Riga</code>\n"
+                "• <code>/timezone Asia/Tashkent</code>\n"
+                "• Или отправьте свою геолокацию 📍"
+            )
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        try:
+            ZoneInfo(tz)
+        except (ZoneInfoNotFoundError, KeyError):
+            return f"❌ Неизвестный timezone: <code>{tz}</code>\nПример: <code>Europe/Riga</code>"
+        set_setting("timezone", tz)
+        if self._notifier:
+            self._notifier.reload_timezone()
+        return f"✅ Timezone установлен: <b>{tz}</b>"
+
+    def _handle_location(self, lat: float, lon: float) -> str:
+        """Авто-определить timezone по координатам Telegram геолокации."""
+        try:
+            from timezonefinder import TimezoneFinder
+            tf = TimezoneFinder()
+            tz = tf.timezone_at(lat=lat, lng=lon)
+            if not tz:
+                return "❌ Не удалось определить timezone по координатам"
+            set_setting("timezone", tz)
+            if self._notifier:
+                self._notifier.reload_timezone()
+            return f"✅ Timezone определён по геолокации: <b>{tz}</b>"
+        except ImportError:
+            return "❌ timezonefinder не установлен. Используйте /timezone Europe/Riga"
+        except Exception as e:
+            logger.error(f"Timezone detection error: {e}")
+            return "❌ Ошибка определения timezone"
 
     # ── Команды ────────────────────────────────────────────────
 
@@ -64,6 +108,7 @@ class TelegramCommands:
             "/today      — сделки за сегодня\n"
             "/positions  — открытые позиции\n"
             "/best       — топ-5 лучших сделок\n"
+            "/timezone   — часовой пояс (или отправь 📍)\n"
             "/help       — это сообщение"
         )
 
@@ -179,6 +224,13 @@ class TelegramCommands:
                     if str(msg.get("chat", {}).get("id")) != self.chat_id:
                         continue
 
+                    # Геолокация → автоопределение timezone
+                    location = msg.get("location")
+                    if location:
+                        reply = self._handle_location(location["latitude"], location["longitude"])
+                        await self._send(reply)
+                        continue
+
                     if text == "/stats":
                         await self._send(self._cmd_stats(mode))
                     elif text == "/today":
@@ -187,6 +239,10 @@ class TelegramCommands:
                         await self._send(self._cmd_positions(mode))
                     elif text == "/best":
                         await self._send(self._cmd_best(mode))
+                    elif text.startswith("/timezone"):
+                        parts = msg.get("text", "").strip().split(maxsplit=1)
+                        args = parts[1] if len(parts) > 1 else ""
+                        await self._send(self._cmd_timezone(args))
                     elif text in ("/help", "/start"):
                         await self._send(self._cmd_help())
 

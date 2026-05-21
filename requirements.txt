@@ -9,3 +9,4 @@ loguru>=0.7.0
 apscheduler>=3.10.0
 sqlalchemy>=2.0.0
 eth-account>=0.10.0
+timezonefinder>=6.0.0

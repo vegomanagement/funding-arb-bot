@@ -58,6 +58,10 @@ class Config:
     scan_interval_sec: int
     min_volume_24h_usd: float
 
+    # Комиссии бирж (taker, доля: 0.00055 = 0.055%)
+    bybit_taker_fee: float
+    hl_taker_fee: float
+
     # DB
     db_path: str
 
@@ -93,6 +97,8 @@ def load_config() -> Config:
         daily_drawdown_limit_pct=_get_float("DAILY_DRAWDOWN_LIMIT_PCT", 5),
         scan_interval_sec=_get_int("SCAN_INTERVAL_SEC", 60),
         min_volume_24h_usd=_get_float("MIN_VOLUME_24H_USD", 1_000_000),
+        bybit_taker_fee=_get_float("BYBIT_TAKER_FEE", 0.00055),
+        hl_taker_fee=_get_float("HL_TAKER_FEE", 0.00045),
         db_path=_get("DB_PATH", "/tmp/funding_arb.db"),
         log_level=_get("LOG_LEVEL", "INFO"),
         timezone=_get("TIMEZONE", "UTC"),

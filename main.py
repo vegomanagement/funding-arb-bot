@@ -44,11 +44,13 @@ class Bot:
             api_key=self.cfg.bybit_api_key,
             api_secret=self.cfg.bybit_api_secret,
             testnet=self.cfg.bybit_testnet,
+            taker_fee=self.cfg.bybit_taker_fee,
         )
         self.hl = HyperliquidClient(
             private_key=self.cfg.hl_private_key,
             address=self.cfg.hl_address,
             testnet=self.cfg.hl_testnet,
+            taker_fee=self.cfg.hl_taker_fee,
         )
         self.exchanges = {"bybit": self.bybit, "hyperliquid": self.hl}
 
@@ -74,7 +76,10 @@ class Bot:
             min_funding_diff_pct=self.cfg.min_funding_diff_pct,
             mode=self.cfg.mode,
         )
-        self.commands = TelegramCommands(self.cfg.tg_token, self.cfg.tg_chat_id)
+        self.commands = TelegramCommands(self.cfg.tg_token, self.cfg.tg_chat_id,
+                                         notifier=self.notifier)
+        # Применить сохранённый timezone из БД (если был задан через /timezone)
+        self.notifier.reload_timezone()
         self._stop = False
 
     async def _log_opportunity(self, op) -> None:

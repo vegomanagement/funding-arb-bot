@@ -6,6 +6,14 @@ import aiohttp
 from loguru import logger
 
 
+def _parse_tz(tz: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, KeyError):
+        logger.warning(f"Неизвестный timezone '{tz}', используем UTC")
+        return ZoneInfo("UTC")
+
+
 class TelegramNotifier:
     def __init__(self, token: str, chat_id: str, tz: str = "UTC"):
         self.token = token
@@ -15,11 +23,18 @@ class TelegramNotifier:
         self.enabled = bool(token and chat_id)
         if not self.enabled:
             logger.warning("Telegram отключен — token или chat_id не заданы")
+        self._default_tz = tz
+        self._tz = _parse_tz(tz)
+
+    def reload_timezone(self) -> None:
+        """Перечитать timezone из БД (вызывать после /timezone команды)."""
         try:
-            self._tz = ZoneInfo(tz)
-        except ZoneInfoNotFoundError:
-            logger.warning(f"Неизвестный timezone '{tz}', используем UTC")
-            self._tz = ZoneInfo("UTC")
+            from src.database.db import get_setting
+            saved = get_setting("timezone")
+            if saved:
+                self._tz = _parse_tz(saved)
+        except Exception:
+            pass
 
     def _now(self) -> datetime:
         return datetime.now(self._tz)

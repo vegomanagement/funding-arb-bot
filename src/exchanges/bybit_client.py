@@ -17,12 +17,15 @@ class BybitClient(ExchangeBase):
     taker_fee = 0.00055           # 0.055% taker на linear perps
     funding_interval_hours = 8     # выплаты каждые 8 часов
 
-    def __init__(self, api_key: str = "", api_secret: str = "", testnet: bool = False):
+    def __init__(self, api_key: str = "", api_secret: str = "", testnet: bool = False,
+                 taker_fee: float | None = None):
         self.api_key = api_key
         self.api_secret = api_secret
         self.base_url = (
             "https://api-testnet.bybit.com" if testnet else "https://api.bybit.com"
         )
+        if taker_fee is not None:
+            self.taker_fee = taker_fee
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:

@@ -15,13 +15,16 @@ class HyperliquidClient(ExchangeBase):
     taker_fee = 0.00045            # 0.045% taker
     funding_interval_hours = 1     # выплаты каждый час
 
-    def __init__(self, private_key: str = "", address: str = "", testnet: bool = False):
+    def __init__(self, private_key: str = "", address: str = "", testnet: bool = False,
+                 taker_fee: float | None = None):
         self.private_key = private_key
         self.address = address
         self.base_url = (
             "https://api.hyperliquid-testnet.xyz" if testnet
             else "https://api.hyperliquid.xyz"
         )
+        if taker_fee is not None:
+            self.taker_fee = taker_fee
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:

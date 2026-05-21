@@ -1,7 +1,7 @@
-"""Тест очистки старых записей opportunities."""
+"""Тест очистки старых записей opportunities + bot_settings."""
 from datetime import datetime, timedelta
 
-from src.database.db import get_session, cleanup_opportunities
+from src.database.db import get_session, cleanup_opportunities, get_setting, set_setting
 from src.database.models import OpportunityLog
 
 
@@ -60,3 +60,19 @@ def test_cleanup_is_idempotent():
 
     assert deleted_second == 0
     assert count_opportunities() == 0
+
+
+def test_get_setting_default():
+    assert get_setting("nonexistent") == ""
+    assert get_setting("nonexistent", "UTC") == "UTC"
+
+
+def test_set_and_get_setting():
+    set_setting("timezone", "Europe/Riga")
+    assert get_setting("timezone") == "Europe/Riga"
+
+
+def test_update_existing_setting():
+    set_setting("timezone", "Asia/Tashkent")
+    set_setting("timezone", "Europe/Berlin")
+    assert get_setting("timezone") == "Europe/Berlin"

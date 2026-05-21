@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from loguru import logger
 
-from .models import Base, OpportunityLog
+from .models import Base, OpportunityLog, BotSetting
 
 
 _engine = None
@@ -33,6 +33,23 @@ def get_session() -> Session:
         raise
     finally:
         session.close()
+
+
+def get_setting(key: str, default: str = "") -> str:
+    """Прочитать значение из bot_settings. Возвращает default если ключ не найден."""
+    with get_session() as s:
+        row = s.get(BotSetting, key)
+        return row.value if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    """Сохранить (или обновить) значение в bot_settings."""
+    with get_session() as s:
+        row = s.get(BotSetting, key)
+        if row:
+            row.value = value
+        else:
+            s.add(BotSetting(key=key, value=value))
 
 
 def cleanup_opportunities(keep_days: int = 7) -> int:

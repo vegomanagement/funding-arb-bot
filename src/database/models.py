@@ -56,6 +56,13 @@ class FundingEvent(Base):
     position = relationship("Position", back_populates="funding_events")
 
 
+class BotSetting(Base):
+    """Персистентные настройки бота (key-value)."""
+    __tablename__ = "bot_settings"
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=False)
+
+
 class OpportunityLog(Base):
     """Лог найденных возможностей для анализа."""
     __tablename__ = "opportunities"

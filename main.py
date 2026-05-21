@@ -38,7 +38,7 @@ class Bot:
     def __init__(self):
         self.cfg = load_config()
         setup_logging(self.cfg.log_level)
-        init_db(self.cfg.db_path)
+        init_db(self.cfg.db_url)
 
         self.bybit = BybitClient(
             api_key=self.cfg.bybit_api_key,

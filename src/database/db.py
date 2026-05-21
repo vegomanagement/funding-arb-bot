@@ -12,10 +12,10 @@ _engine = None
 _SessionLocal = None
 
 
-def init_db(db_path: str) -> None:
-    """Создать engine и таблицы."""
+def init_db(db_url: str) -> None:
+    """Создать engine и таблицы. db_url — полный SQLAlchemy URL."""
     global _engine, _SessionLocal
-    _engine = create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+    _engine = create_engine(db_url, echo=False, future=True)
     Base.metadata.create_all(_engine)
     _SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False)
 

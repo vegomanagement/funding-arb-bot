@@ -62,8 +62,8 @@ class Config:
     bybit_taker_fee: float
     hl_taker_fee: float
 
-    # DB
-    db_path: str
+    # DB (полный SQLAlchemy URL: postgresql://... или sqlite:///...)
+    db_url: str
 
     # Логи
     log_level: str
@@ -76,6 +76,18 @@ class Config:
     @property
     def is_live(self) -> bool:
         return self.mode == "live"
+
+
+def _build_db_url() -> str:
+    """Вернуть DATABASE_URL (Postgres) или построить SQLite URL из DB_PATH."""
+    url = _get("DATABASE_URL")
+    if url:
+        # Railway/Heroku иногда отдают postgres://, SQLAlchemy требует postgresql://
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://"):]
+        return url
+    db_path = _get("DB_PATH", "/tmp/funding_arb.db")
+    return f"sqlite:///{db_path}"
 
 
 def load_config() -> Config:
@@ -99,7 +111,7 @@ def load_config() -> Config:
         min_volume_24h_usd=_get_float("MIN_VOLUME_24H_USD", 1_000_000),
         bybit_taker_fee=_get_float("BYBIT_TAKER_FEE", 0.00055),
         hl_taker_fee=_get_float("HL_TAKER_FEE", 0.00045),
-        db_path=_get("DB_PATH", "/tmp/funding_arb.db"),
+        db_url=_build_db_url(),
         log_level=_get("LOG_LEVEL", "INFO"),
         timezone=_get("TIMEZONE", "UTC"),
     )

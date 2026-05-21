@@ -1,0 +1,29 @@
+# Секреты
+.env
+.env.*
+!.env.example
+
+# База данных
+*.db
+*.db-journal
+
+# Логи
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+venv/
+.venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

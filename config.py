@@ -92,7 +92,7 @@ def load_config() -> Config:
         daily_drawdown_limit_pct=_get_float("DAILY_DRAWDOWN_LIMIT_PCT", 5),
         scan_interval_sec=_get_int("SCAN_INTERVAL_SEC", 60),
         min_volume_24h_usd=_get_float("MIN_VOLUME_24H_USD", 1_000_000),
-        db_path=_get("DB_PATH", "/data/funding_arb.db" if os.path.isdir("/data") else "funding_arb.db"),
+        db_path=_get("DB_PATH", "/tmp/funding_arb.db"),
         log_level=_get("LOG_LEVEL", "INFO"),
     )
 

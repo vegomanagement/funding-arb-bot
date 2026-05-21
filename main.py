@@ -31,7 +31,7 @@ def setup_logging(level: str) -> None:
         "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
         "<level>{level: <7}</level> | <cyan>{name}</cyan> - {message}"
     ))
-    logger.add("logs/bot.log", level=level, rotation="10 MB", retention="7 days")
+    logger.add("/tmp/bot.log", level=level, rotation="10 MB", retention="7 days")
 
 
 class Bot:
